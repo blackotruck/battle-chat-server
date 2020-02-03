@@ -34,7 +34,7 @@ io.on('connection', (socket) => {
 
     const {id, name, picture} = profile    
     //if(error) return cb(error)
-    if(!!userInRoom(id, 'lobby')) {
+    if(!userInRoom(id, 'lobby')) {
       const {error, user} = addUser({
         socketId: socket.id,
         id,
@@ -47,13 +47,14 @@ io.on('connection', (socket) => {
       socket.broadcast.to(room)
         .emit('NEW_CONNECTION', {id, name, picture})
       socket.emit('message', new Message('BattleChat', `${profile.name}, Welcome to BattleChat`))
+      console.log(`${profile.name} (${profile.id}) joined room:"${room}" on socket ${socket.id}`)
+      socket.broadcast.to(room)
+        .emit('message', new Message('BattleChat', `${profile.name}, has joined`))
+    } else {
+      socket.emit('PREV_MESSAGES', getMessages())
     }
-    socket.emit('PREV_MESSAGES', getMessages())
     socket.emit('USERS_LIST', usersExcept(id))
-    socket.broadcast.to(room)
-      .emit('message', new Message('BattleChat', `${profile.name}, has joined`))
-    console.log(`${profile.name} (${profile.id}) joined room:"${room}" on socket ${socket.id}`)
-    console.log(getMessages().length)
+    console.log('**************')
   })
 
   socket.on('sendMessage', (id, message, room, cb) => {
@@ -68,7 +69,12 @@ io.on('connection', (socket) => {
   })
 
   socket.on('leave', ({id}) => {
-    disconnectUser(id, socket.id)
+    const user = getUser(id)
+    disconnectUser(id, socket.id, () => {
+      socket.broadcast.to('lobby').emit('USER_DISCONNECTED', {id})
+      socket.broadcast.to('lobby').emit('message', new Message('BattleChat', `${user.name} left`))
+      console.log('Leave**************')
+    })
   })
 })
 
